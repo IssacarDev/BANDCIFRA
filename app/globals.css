@@ -1,0 +1,207 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+[data-theme='light'] {
+  /* Partitura: branco-lavanda, tinta violeta escura, acordes em laranja-fogo */
+  --bg: 247 246 252;
+  --card: 255 255 255;
+  --border: 226 223 240;
+  --fg: 27 24 48;
+  --muted: 106 102 138;
+  --accent: 91 75 219;
+  --accent-fg: 255 255 255;
+  --chord: 214 72 12;
+  --k-maj: 204 68 8;
+  --k-min: 29 92 214;
+  --k-dom: 196 24 76;
+  --k-other: 8 128 98;
+  color-scheme: light;
+}
+[data-theme='dark'] {
+  /* Palco: preto-violeta, luz de refletor âmbar nos acordes */
+  --bg: 14 13 22;
+  --card: 24 22 38;
+  --border: 44 41 66;
+  --fg: 238 235 247;
+  --muted: 152 147 182;
+  --accent: 138 124 255;
+  --accent-fg: 14 12 34;
+  --chord: 255 196 87;
+  --k-maj: 255 196 87;
+  --k-min: 108 190 255;
+  --k-dom: 255 124 148;
+  --k-other: 118 222 170;
+  color-scheme: dark;
+}
+[data-theme='oled'] {
+  /* OLED: preto puro */
+  --bg: 0 0 0;
+  --card: 13 12 20;
+  --border: 40 38 56;
+  --fg: 255 255 255;
+  --muted: 165 161 190;
+  --accent: 157 140 255;
+  --accent-fg: 0 0 0;
+  --chord: 255 214 102;
+  --k-maj: 255 214 102;
+  --k-min: 120 200 255;
+  --k-dom: 255 120 150;
+  --k-other: 130 232 180;
+  color-scheme: dark;
+}
+
+html,
+body {
+  background-color: rgb(var(--bg));
+  color: rgb(var(--fg));
+}
+body {
+  font-family: Figtree, ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
+  background-image: radial-gradient(900px 420px at 50% -120px, rgb(var(--accent) / 0.16), transparent 70%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+::selection {
+  background: rgb(var(--accent) / 0.3);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 0.35s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rise {
+    animation: none;
+  }
+}
+
+/* ---------- Leitor ---------- */
+.song-root {
+  --fit: 1;
+  font-family: 'JetBrains Mono', 'Cascadia Mono', Consolas, ui-monospace, monospace;
+}
+.song-block {
+  break-inside: avoid;
+  page-break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  margin-bottom: calc(var(--lyric) * var(--fit) * 1.35);
+}
+/* Duas colunas sem scroll: altura fixa, preenchimento sequencial e blocos inteiros */
+.song-columns {
+  column-count: 2;
+  column-gap: 2.5rem;
+  column-fill: auto;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Pulso do metrônomo */
+@keyframes pulse-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.08;
+  }
+}
+.pulse-bar {
+  animation: pulse-fade 0.35s ease-out forwards;
+  background: rgb(var(--accent));
+}
+.pulse-accent {
+  background: rgb(var(--chord));
+}
+
+.print-only {
+  display: none;
+}
+
+/* ---------- Impressão / PDF limpo ---------- */
+@media print {
+  html,
+  html[data-theme] {
+    --bg: 255 255 255;
+    --fg: 0 0 0;
+    --muted: 85 85 85;
+    --chord: 180 56 15;
+    --k-maj: 170 50 5;
+    --k-min: 20 70 180;
+    --k-dom: 170 20 60;
+    --k-other: 5 100 78;
+    --card: 255 255 255;
+    --border: 204 204 204;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .reader-root {
+    display: block !important;
+    height: auto !important;
+  }
+  .reader-main {
+    position: static !important;
+    overflow: visible !important;
+  }
+  .reader-main > div {
+    position: static !important;
+  }
+  .song-columns {
+    height: auto !important;
+    column-fill: balance;
+    overflow: visible !important;
+  }
+}
+
+/* Acorde em "chip" colorido por tipo */
+.chord-chip {
+  --k: var(--chord);
+  color: rgb(var(--k));
+  background: rgb(var(--k) / 0.16);
+  box-shadow: inset 0 0 0 1px rgb(var(--k) / 0.28);
+  border-radius: 0.5em;
+  padding: 0.14em 0.5em;
+  margin-left: -0.5em;
+  line-height: 1.15;
+}
+.chord-chip[data-kind='maj'] { --k: var(--k-maj); }
+.chord-chip[data-kind='min'] { --k: var(--k-min); }
+.chord-chip[data-kind='dom'] { --k: var(--k-dom); }
+.chord-chip[data-kind='other'] { --k: var(--k-other); }
+.chord-chip:hover {
+  background: rgb(var(--k) / 0.3);
+}
+
+/* Listas suspensas (Capo, tipo de bloco, repertório): fundo e texto do tema */
+select {
+  color-scheme: inherit;
+}
+select option,
+select optgroup {
+  background-color: rgb(var(--card));
+  color: rgb(var(--fg));
+}
+select option:checked {
+  background-color: rgb(var(--accent) / 0.35);
+  color: rgb(var(--fg));
+}
+
+/* Apresentação: as quebras de página são decididas por script, então os blocos podem se dividir */
+.song-paged .song-block {
+  break-inside: auto;
+  page-break-inside: auto;
+  -webkit-column-break-inside: auto;
+}

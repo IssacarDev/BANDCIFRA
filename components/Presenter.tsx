@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Scissors, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Expand, Settings2, X } from 'lucide-react';
+import { Scissors, Smartphone, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Expand, Settings2, X } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { useAuth } from '@/lib/auth';
 import { DEFAULT_PEDAL } from '@/lib/store';
@@ -11,6 +11,9 @@ import {
 } from '@/lib/presenter';
 import type { PedalConfig, Song } from '@/types/song';
 import SongView from './SongView';
+import RemotePanel from './RemotePanel';
+import { useRemoteHost } from '@/hooks/useRemote';
+import { loadCode, type RemoteCmd, type RemoteState } from '@/lib/remoteProto';
 import { Btn, Seg, Toggle } from './ui';
 import { cn } from '@/lib/utils';
 
@@ -51,6 +54,9 @@ export default function Presenter({ song, setlistName, prevId, nextId, onGo, onP
   const [heldRight, setHeldRight] = useState(false);
   const isAdmin = useAuth((s) => s.isAdmin);
   const [editing, setEditing] = useState(false);
+  const [remoteOpen, setRemoteOpen] = useState(false);
+  const [code, setCode] = useState('');
+  useEffect(() => setCode(loadCode()), []);
   const [draft, setDraft] = useState<string[]>([]);
   const autoKeys = useRef<string[]>([]);
   const [hdrOpen, setHdrOpen] = useState(true);
@@ -85,9 +91,11 @@ export default function Presenter({ song, setlistName, prevId, nextId, onGo, onP
   const pedalState = useRef<PedalState>(initialPedal(Date.now()));
   const editingRef = useRef(false);
   editingRef.current = editing;
+  const remoteRef = useRef(false);
+  remoteRef.current = remoteOpen;
   const [pick, setPick] = useState(0);
   const live = useRef({ song, prefs, page, pages, prevId, nextId, learning, setup: false, pick, allSongs });
-  live.current = { song, prefs, page, pages, prevId, nextId, learning, setup: setup || editing, pick, allSongs };
+  live.current = { song, prefs, page, pages, prevId, nextId, learning, setup: setup || editing || remoteOpen, pick, allSongs };
 
   const flash = useCallback((text: string) => setToast({ id: Date.now(), text }), []);
   useEffect(() => {
@@ -253,7 +261,8 @@ export default function Presenter({ song, setlistName, prevId, nextId, onGo, onP
       if (typing(e)) return;
       if (e.code === 'Escape') {
         e.preventDefault();
-        if (editingRef.current) setEditing(false);
+        if (remoteRef.current) setRemoteOpen(false);
+        else if (editingRef.current) setEditing(false);
         else if (S) setSetup(false);
         else onExit();
         return;
@@ -338,6 +347,61 @@ export default function Presenter({ song, setlistName, prevId, nextId, onGo, onP
     };
   }, [pedal.midi.enabled, learnMidi, press]);
 
+  /* ---- controle remoto (outro celular) ---- */
+  const setModeDirect = useCallback(
+    (m: PresentMode) => {
+      pedalState.current = { ...pedalState.current, mode: m, lastActivity: Date.now() };
+      if (m === 5) setPick(Math.max(0, live.current.allSongs.findIndex((x) => x.id === live.current.song.id)));
+      setMode(m);
+      setStale(false);
+      flash(`Modo ${m} · ${MODE_NAMES[m]}`);
+    },
+    [flash],
+  );
+
+  const onRemote = useCallback(
+    (c: RemoteCmd) => {
+      if (editingRef.current) return;
+      const L = live.current;
+      switch (c.k) {
+        case 'press': press(c.side, c.phase); break;
+        case 'transpose': run({ type: 'transpose', dir: c.dir }); break;
+        case 'simplify': run({ type: 'simplify', value: !L.prefs.simplified }); break;
+        case 'font': run({ type: 'font', dir: c.dir }); break;
+        case 'mode': setModeDirect(c.mode); break;
+        case 'song': if (c.id !== L.song.id) onPick(c.id); break;
+        case 'nextSong': if (L.nextId) onGo(L.nextId); else flash('Última música do repertório'); break;
+        case 'prevSong': if (L.prevId) onGo(L.prevId); else flash('Primeira música do repertório'); break;
+        case 'page': run({ type: 'page', dir: c.dir }); break;
+        case 'exit': onExit(); break;
+      }
+    },
+    [flash, onExit, onGo, onPick, press, run, setModeDirect],
+  );
+
+  const remoteState: RemoteState = {
+    songId: song.id,
+    title: song.title,
+    artist: song.artist,
+    key: keys.sounding,
+    capo: song.capo,
+    simplified: prefs.simplified,
+    fontSize: prefs.fontSize,
+    mode,
+    page,
+    pages,
+    pick,
+    hasPrev: !!prevId,
+    hasNext: !!nextId,
+    songs: allSongs.map((x) => ({ id: x.id, title: x.title, artist: x.artist, key: x.currentKey })),
+  };
+  const { controllers } = useRemoteHost(code, remoteState, onRemote);
+  const prevControllers = useRef(0);
+  useEffect(() => {
+    if (controllers > prevControllers.current) flash('Controle conectado');
+    prevControllers.current = controllers;
+  }, [controllers, flash]);
+
   /* ---- toque nas laterais / deslize ---- */
   const touch = useRef<{ x: number; y: number } | null>(null);
   const onTouchStart = (e: React.TouchEvent) => (touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY });
@@ -386,6 +450,10 @@ export default function Presenter({ song, setlistName, prevId, nextId, onGo, onP
             </span>
           )}
           {prefs.simplified && <span className="hidden rounded-full bg-line/70 px-3 py-1 text-sm font-semibold text-muted sm:inline">Simplificada</span>}
+          <button onClick={() => setRemoteOpen(true)} aria-label="Controle pelo celular" title="Controlar de outro celular (QR Code)" className={cn(ibtn, 'relative')}>
+            <Smartphone size={16} />
+            {controllers > 0 && <span className="absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-card" />}
+          </button>
           {isAdmin && (
             <button
               onClick={() => { setDraft(song.pageBreaks?.length ? song.pageBreaks : autoKeys.current); setEditing(true); }}
@@ -580,6 +648,8 @@ export default function Presenter({ song, setlistName, prevId, nextId, onGo, onP
           </div>
         </div>
       )}
+
+      {remoteOpen && code && <RemotePanel code={code} controllers={controllers} onClose={() => setRemoteOpen(false)} />}
 
       {setup && (
         <SetupPanel

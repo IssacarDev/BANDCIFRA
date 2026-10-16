@@ -1,4 +1,4 @@
-import { addRemoteCommand, databaseConfigured, publishRemoteState } from '@/lib/serverDb';
+import { addRemoteCommand, databaseConfigured, logDatabaseError, publishRemoteState } from '@/lib/serverDb';
 import { validCode, type Role } from '@/lib/remoteHub';
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +21,8 @@ export async function POST(req: Request) {
     if (event === 'state') await publishRemoteState(code, body.data ?? null);
     else await addRemoteCommand(code, body.data ?? null);
     return Response.json({ ok: true });
-  } catch {
+  } catch (error) {
+    logDatabaseError('remote/send', error);
     return new Response('database error', { status: 500 });
   }
 }

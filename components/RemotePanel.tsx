@@ -6,31 +6,14 @@ import { Btn } from './ui';
 
 /** Janela com o QR Code que abre o controle remoto em outro celular. */
 export default function RemotePanel({ code, controllers, onClose }: { code: string; controllers: number; onClose: () => void }) {
-  const [ips, setIps] = useState<string[]>([]);
-  const [ip, setIp] = useState('');
   const [copied, setCopied] = useState(false);
   const [origin, setOrigin] = useState('');
 
   useEffect(() => {
     setOrigin(window.location.origin);
-    fetch('/api/lan')
-      .then((r) => r.json())
-      .then((d: { ips: string[] }) => {
-        setIps(d.ips ?? []);
-        setIp(d.ips?.[0] ?? '');
-      })
-      .catch(() => {});
   }, []);
 
-  // se o app foi aberto como "localhost", troca pelo IP da rede para o celular conseguir entrar
-  const base = useMemo(() => {
-    if (!origin) return '';
-    const u = new URL(origin);
-    const local = ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname);
-    return local && ip ? `${u.protocol}//${ip}${u.port ? `:${u.port}` : ''}` : origin;
-  }, [origin, ip]);
-  const url = base ? `${base}/control?c=${code}` : '';
-  const isLocalOnly = !!origin && ['localhost', '127.0.0.1', '[::1]'].includes(new URL(origin).hostname) && !ip;
+  const url = origin ? `${origin}/control?c=${code}` : '';
 
   const matrix = useMemo(() => (url ? qrMatrix(url) : null), [url]);
 
@@ -63,15 +46,6 @@ export default function RemotePanel({ code, controllers, onClose }: { code: stri
 
         <div className="mt-3 break-all rounded-2xl bg-surface px-3 py-2 text-center text-xs text-muted">{url || '…'}</div>
 
-        {ips.length > 1 && (
-          <label className="mt-3 flex items-center justify-between gap-2 text-xs font-semibold text-muted">
-            Rede
-            <select value={ip} onChange={(e) => setIp(e.target.value)} className="rounded-full border border-line bg-card px-3 py-1.5 text-ink outline-none">
-              {ips.map((i) => <option key={i} value={i}>{i}</option>)}
-            </select>
-          </label>
-        )}
-
         <Btn
           className="mt-3 w-full"
           onClick={() => {
@@ -86,8 +60,7 @@ export default function RemotePanel({ code, controllers, onClose }: { code: stri
         </Btn>
 
         <p className="mt-3 text-xs text-muted">
-          Os dois aparelhos precisam estar na <b className="text-ink">mesma rede Wi-Fi</b> e o computador com o app aberto (iniciar-cifras.bat) precisa continuar ligado.
-          {isLocalOnly && ' Não achei o endereço do computador na rede: abra o app pelo IP dele (ex.: http://192.168.0.10:3000).'}
+          O controle funciona pela internet: abra este QR no celular, mesmo em outra rede. Mantenha a apresentação aberta no computador.
         </p>
       </div>
     </div>

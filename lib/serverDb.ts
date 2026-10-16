@@ -11,6 +11,17 @@ export function databaseConfigured() {
   return Boolean(process.env.DATABASE_URL);
 }
 
+/**
+ * Registra falhas do Neon sem nunca expor a string de conexão nos logs do Vercel.
+ * Os handlers usam isso para que uma falha de infraestrutura possa ser diagnosticada
+ * sem revelar a senha do banco.
+ */
+export function logDatabaseError(scope: string, error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  const safeMessage = message.replace(/postgres(?:ql)?:\/\/\S+/gi, '[DATABASE_URL removida]');
+  console.error(`[${scope}] ${safeMessage}`);
+}
+
 function sql() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL não está configurada.');

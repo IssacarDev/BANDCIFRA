@@ -1,7 +1,7 @@
 # Cifras — leitor e gerenciador de cifras (Next.js)
 
-Next.js 15 (App Router) · TypeScript · Tailwind CSS 3 · Zustand · pdfjs-dist.
-Funciona 100% no navegador (dados em `localStorage`), pronto para `npm run dev` e deploy na Vercel.
+Next.js 16 (App Router) · TypeScript · Tailwind CSS 3 · Zustand · Neon Postgres · pdfjs-dist.
+Músicas e repertórios são compartilhados pelo Neon; preferências visuais continuam salvas no navegador.
 
 ## Rodar
 
@@ -12,7 +12,18 @@ npm run test         # testes da lógica (transposição, parser, blocos...)
 npm run build        # produção / Vercel
 ```
 
-Deploy: suba o projeto no GitHub e importe na Vercel (sem variáveis de ambiente).
+## Deploy na Vercel com Neon
+
+1. Crie um projeto PostgreSQL no [Neon](https://neon.tech) e copie a connection string.
+2. No projeto local, crie `.env.local` a partir de `.env.example` e cole o valor em `DATABASE_URL`.
+3. Na Vercel, importe este repositório e adicione a mesma variável `DATABASE_URL` em **Settings → Environment Variables** para Production (e Preview, se desejar).
+4. Faça o deploy. Na primeira chamada, o aplicativo cria as tabelas automaticamente e insere a cifra de demonstração.
+
+Não exponha `DATABASE_URL` ao navegador nem a envie ao GitHub. Sem essa variável, o app continua útil em modo local, mas não sincroniza músicas, repertórios nem o controle remoto.
+
+O projeto é intencionalmente aberto: `admin` / `admin` apenas libera a interface de edição e não é uma barreira de segurança. Qualquer pessoa com essa senha pode alterar o acervo compartilhado.
+
+Antes do primeiro deploy, exporte um backup JSON de qualquer acervo que exista somente no navegador. O banco compartilhado passa a ser a fonte principal de músicas e repertórios assim que estiver configurado.
 
 ## Estrutura
 
@@ -30,7 +41,8 @@ lib/
   parser.ts             texto "cifra sobre letra" -> Song (acordes x letra, cabeçalho, blocos)
   pdfParser.ts          PDF -> texto monoespaçado (pdfjs-dist, client-side)
   blocks.ts             mover / duplicar / juntar blocos
-  store.ts, backup.ts   estado persistido e exportação .json
+  store.ts, backup.ts   cache local, sincronização e exportação .json
+  serverDb.ts           acesso server-side ao Neon e tabelas do app
 types/song.ts           Song, SongBlock, LyricLine, ChordPosition...
 scripts/selftest.ts     testes
 ```
@@ -42,6 +54,7 @@ scripts/selftest.ts     testes
 - Ao importar um PDF com "Capotraste na Nª casa", as cifras impressas são o *formato* tocado;
   o app soma o capo ao salvar (som real) e exibe de volta o mesmo formato do PDF.
 - "Minha versão" = cópia independente (`variantOf` aponta para a original).
+- O controle remoto usa polling curto sobre o Neon, portanto funciona em deploy serverless da Vercel; não depende da memória de uma única instância.
 
 ## Atalhos do leitor
 

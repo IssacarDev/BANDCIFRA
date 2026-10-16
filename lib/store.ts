@@ -43,6 +43,8 @@ interface State {
   setSetlistSongs: (id: string, songIds: string[]) => void;
 
   importBackup: (b: Backup, mode: 'merge' | 'replace') => void;
+  /** Substitui o acervo local pelo estado compartilhado salvo no banco. */
+  replaceLibrary: (songs: Song[], setlists: Setlist[]) => void;
 }
 
 export const useStore = create<State>()(
@@ -119,6 +121,7 @@ export const useStore = create<State>()(
           }
           return { songs, setlists };
         }),
+      replaceLibrary: (songs, setlists) => set({ songs, setlists }),
     }),
     {
       name: 'cifra-app:v1',

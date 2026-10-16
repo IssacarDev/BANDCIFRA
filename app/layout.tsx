@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import ThemeProvider from '@/components/ThemeProvider';
+import CloudSync from '@/components/CloudSync';
 
 export const metadata: Metadata = {
   title: 'Cifras — leitor e gerenciador',
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-dvh bg-surface text-ink antialiased" suppressHydrationWarning>
         <ThemeProvider />
+        <CloudSync />
         {children}
       </body>
     </html>

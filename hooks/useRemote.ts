@@ -18,32 +18,44 @@ export function useRemoteHost(code: string, state: RemoteState, onCommand: (c: R
   const last = useRef('');
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const codeRef = useRef(code);
+  const stateRef = useRef('');
   codeRef.current = code;
 
   useEffect(() => {
     if (!code) return;
-    const es = new EventSource(`/api/remote/stream?code=${code}&role=presenter`);
-    es.addEventListener('cmd', (e) => {
+    let active = true;
+    let after = 0;
+    let lastCommandAt = 0;
+    let initialized = false;
+    const poll = async () => {
       try {
-        cmdRef.current(JSON.parse((e as MessageEvent).data));
+        const response = await fetch(`/api/remote/commands?code=${code}&after=${after}`, { cache: 'no-store' });
+        if (!response.ok) return;
+        const body = await response.json() as { latestId?: number; commands?: { id: number; payload: RemoteCmd }[] };
+        // Ao abrir uma nova apresentação, ignora comandos de uma sessão anterior com o mesmo código.
+        if (!initialized) {
+          after = Math.max(after, body.latestId ?? 0);
+          initialized = true;
+          return;
+        }
+        for (const command of body.commands ?? []) {
+          after = Math.max(after, command.id);
+          cmdRef.current(command.payload);
+          lastCommandAt = Date.now();
+          setControllers(1);
+        }
+        if (Date.now() - lastCommandAt > 15_000) setControllers(0);
       } catch {
-        /* ignora mensagem inválida */
+        // A próxima consulta tenta reconectar.
       }
-    });
-    es.addEventListener('peers', (e) => {
-      try {
-        setControllers(JSON.parse((e as MessageEvent).data).controllers ?? 0);
-      } catch {
-        /* ignora */
-      }
-    });
-    es.addEventListener('open', () => {
-      last.current = ''; // reconectou: manda o estado de novo
-    });
-    return () => es.close();
+    };
+    void poll();
+    const id = setInterval(() => { if (active) void poll(); }, 700);
+    return () => { active = false; clearInterval(id); };
   }, [code]);
 
   const json = JSON.stringify(state);
+  stateRef.current = json;
   useEffect(() => {
     if (!code || json === last.current) return;
     if (timer.current) clearTimeout(timer.current);
@@ -56,6 +68,19 @@ export function useRemoteHost(code: string, state: RemoteState, onCommand: (c: R
     };
   }, [json, code, controllers]);
 
+  // Mantém a apresentação marcada como ativa mesmo quando o estado visual não muda.
+  useEffect(() => {
+    if (!code) return;
+    const id = setInterval(() => {
+      try {
+        void post(codeRef.current, 'state', JSON.parse(stateRef.current));
+      } catch {
+        /* estado ainda não inicializado */
+      }
+    }, 15_000);
+    return () => clearInterval(id);
+  }, [code]);
+
   return { controllers };
 }
 
@@ -67,24 +92,23 @@ export function useRemoteController(code: string) {
 
   useEffect(() => {
     if (!code) return;
-    const es = new EventSource(`/api/remote/stream?code=${code}&role=controller`);
-    es.addEventListener('open', () => setOnline(true));
-    es.addEventListener('error', () => setOnline(false));
-    es.addEventListener('state', (e) => {
+    let active = true;
+    const poll = async () => {
       try {
-        setState(JSON.parse((e as MessageEvent).data));
+        const response = await fetch(`/api/remote/state?code=${code}`, { cache: 'no-store' });
+        if (!response.ok) throw new Error('remote unavailable');
+        const body = await response.json() as { state?: RemoteState | null };
+        if (!active) return;
+        setState(body.state ?? null);
+        setPresenters(body.state ? 1 : 0);
+        setOnline(true);
       } catch {
-        /* ignora */
+        if (active) setOnline(false);
       }
-    });
-    es.addEventListener('peers', (e) => {
-      try {
-        setPresenters(JSON.parse((e as MessageEvent).data).presenters ?? 0);
-      } catch {
-        /* ignora */
-      }
-    });
-    return () => es.close();
+    };
+    void poll();
+    const id = setInterval(() => { void poll(); }, 700);
+    return () => { active = false; clearInterval(id); };
   }, [code]);
 
   const send = useCallback((cmd: RemoteCmd) => void post(code, 'cmd', cmd), [code]);

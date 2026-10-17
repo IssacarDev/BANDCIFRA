@@ -63,7 +63,7 @@ export default function Controller({ code }: { code: string }) {
         <div className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-widest">
           {connected ? <Wifi size={14} className="text-green-500" /> : <WifiOff size={14} className="text-red-500" />}
           <span className={connected ? 'text-green-500' : 'text-red-500'}>
-            {!online ? 'Sem conexão com o computador' : presenters > 0 ? 'Conectado à apresentação' : 'Aguardando a apresentação'}
+            {!online ? 'Sem conexão com o servidor' : presenters > 0 ? 'Conectado à apresentação' : 'Aguardando a apresentação'}
           </span>
           <span className="ml-auto text-muted">{code}</span>
         </div>

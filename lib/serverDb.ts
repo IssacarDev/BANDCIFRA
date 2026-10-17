@@ -7,8 +7,14 @@ type RemoteCommandRow = { id: number | string; payload: unknown };
 
 let schemaReady: Promise<void> | undefined;
 
+function databaseUrl() {
+  // NEON_DATABASE_URL permite trocar a credencial no Vercel sem depender de uma
+  // variável DATABASE_URL antiga. Localmente, DATABASE_URL continua compatível.
+  return process.env.NEON_DATABASE_URL ?? process.env.DATABASE_URL;
+}
+
 export function databaseConfigured() {
-  return Boolean(process.env.DATABASE_URL);
+  return Boolean(databaseUrl());
 }
 
 /**
@@ -23,8 +29,8 @@ export function logDatabaseError(scope: string, error: unknown) {
 }
 
 function sql() {
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error('DATABASE_URL não está configurada.');
+  const url = databaseUrl();
+  if (!url) throw new Error('A conexão com o banco não está configurada.');
   return neon(url);
 }
 

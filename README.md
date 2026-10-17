@@ -16,7 +16,7 @@ npm run build        # produção / Vercel
 
 1. Crie um projeto PostgreSQL no [Neon](https://neon.tech) e copie a connection string.
 2. No projeto local, crie `.env.local` a partir de `.env.example` e cole o valor em `DATABASE_URL`.
-3. Na Vercel, importe este repositório e adicione a mesma variável `DATABASE_URL` em **Settings → Environment Variables** para Production (e Preview, se desejar).
+3. Na Vercel, importe este repositório e adicione a mesma variável `DATABASE_URL` em **Settings → Environment Variables** para Production (e Preview, se desejar). Se precisar trocar a credencial sem alterar a variável existente, use `NEON_DATABASE_URL`; ela tem prioridade.
 4. Faça o deploy. Na primeira chamada, o aplicativo cria as tabelas automaticamente e insere a cifra de demonstração.
 
 Não exponha `DATABASE_URL` ao navegador nem a envie ao GitHub. Sem essa variável, o app continua útil em modo local, mas não sincroniza músicas, repertórios nem o controle remoto.

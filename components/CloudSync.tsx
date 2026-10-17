@@ -13,6 +13,11 @@ function isLibrary(value: unknown): value is { songs: Song[]; setlists: Setlist[
     && Array.isArray((value as LibraryResponse).setlists);
 }
 
+/** O banco novo começa só com a música de demonstração. */
+function isSeedLibrary(library: { songs: Song[]; setlists: Setlist[] }) {
+  return library.songs.length === 1 && library.songs[0]?.id === 'demo' && library.setlists.length === 0;
+}
+
 /** Mantém músicas e repertórios sincronizados com o Neon; preferências continuam por aparelho. */
 export default function CloudSync() {
   const hydrated = useHydrated();
@@ -47,6 +52,14 @@ export default function CloudSync() {
       .then(async (response) => (response.ok ? response.json() : null))
       .then((data: unknown) => {
         if (!active || !isLibrary(data)) return;
+        const local = useStore.getState();
+        // Primeira sincronização após configurar o Neon: não substitui as
+        // músicas que já existem no PC pelo conteúdo de demonstração do banco.
+        if (isSeedLibrary(data) && !isSeedLibrary(local)) {
+          ready = true;
+          void save();
+          return;
+        }
         useStore.getState().replaceLibrary(data.songs, data.setlists);
         ready = true;
       })
